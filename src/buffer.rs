@@ -1047,4 +1047,38 @@ impl<'a> TextBuffer<'a> {
             }
         }
     }
+
+    #[cfg(feature = "swash")]
+    pub fn outlines(
+        &self,
+        cache: &mut crate::SwashCache,
+        color: Color
+    ) -> impl Iterator<Item = Outline> {
+        let font_size = self.metrics.font_size;
+        let line_height = self.metrics.line_height;
+        let mut outlines = Vec::new();
+
+        for run in self.layout_runs() {
+            for glyph in run.glyphs.iter() {
+                let (cache_key, x_int, y_int) = (glyph.cache_key, glyph.x_int, glyph.y_int);
+
+                // TODO: Color
+                let glyph_color = match glyph.color_opt {
+                    Some(some) => some,
+                    None => color,
+                };
+
+                use swash::zeno::Transform;
+
+                let mut outline = cache.get_outline(cache_key).expect("TODO: Handle outline failing");
+                outline.transform(&Transform::translation(x_int as _, y_int as _));
+                outlines.push(outline);
+            }         
+        }
+
+        outlines.into_iter()
+    }
 }
+
+#[cfg(feature = "swash")]
+use swash::scale::outline::Outline;

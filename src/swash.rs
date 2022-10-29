@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::collections::HashMap;
+use swash::scale::outline::Outline;
 use swash::scale::{ScaleContext, image::Content};
 use swash::scale::{Render, Source, StrikeWith};
 use swash::zeno::{Format, Vector};
@@ -45,6 +46,34 @@ fn swash_image<'a>(font_system: &'a FontSystem<'a>, context: &mut ScaleContext, 
     .offset(offset)
     // Render the image
     .render(&mut scaler, cache_key.glyph_id)
+}
+
+fn swash_outline<'a>(
+    font_system: &'a FontSystem<'a>,
+    context: &mut ScaleContext,
+    cache_key: CacheKey,
+) -> Option<Outline> {
+    let font = match font_system.get_font(cache_key.font_id) {
+        Some(some) => some,
+        None => {
+            log::warn!("did not find font {:?}", cache_key.font_id);
+            return None;
+        },
+    };
+
+    // Build the scaler
+    let mut scaler = context
+        .builder(font.as_swash())
+        .size(cache_key.font_size as f32)
+        .hint(true)
+        .build();
+
+    // Compute the fractional offset-- you'll likely want to quantize this
+    // in a real renderer
+    let offset =
+        Vector::new(cache_key.x_bin.as_float(), cache_key.y_bin.as_float());
+
+    scaler.scale_outline(cache_key.glyph_id)
 }
 
 /// Cache for rasterizing with the swash scaler
@@ -129,5 +158,9 @@ impl<'a> SwashCache<'a> {
                 }
             }
         }
+    }
+
+    pub fn get_outline(&mut self, cache_key: CacheKey) -> Option<Outline> {
+        swash_outline(self.font_system, &mut self.context, cache_key)
     }
 }
